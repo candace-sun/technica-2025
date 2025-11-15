@@ -13,10 +13,7 @@ def encode_image(image_path):
 openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=openai_api_key)
 
-"""pydantic models to record food items and nutrient information, 
-not necessary but helpful if you intend to create apis 
-or use the data in other ways.
-"""
+
 class Food(BaseModel):
     name: str
     quantity: str
