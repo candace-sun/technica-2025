@@ -16,6 +16,29 @@ export default function Home() {
     }
   };
 
+  const generateZeroWaste = async () => {
+    if (!file) return;
+    setLoading(true);
+    setResult("");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("http://localhost:8000/zero-waste-recipe", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+    setResult(
+      typeof data.result === "string"
+        ? data.result
+        : JSON.stringify(data.result, null, 2)
+    );
+    setLoading(false);
+};
+
+
   const detectFood = async () => {
     if (!file) return;
     setLoading(true);
@@ -30,7 +53,11 @@ export default function Home() {
     });
 
     const data = await res.json();
-    setResult(data.result);
+  setResult(
+    typeof data.result === "string"
+      ? data.result
+      : JSON.stringify(data.result, null, 2)
+  );
     setLoading(false);
   };
 
@@ -84,6 +111,17 @@ export default function Home() {
           "Detect Food"
         )}
       </button>
+
+      {/* try zero waste */ }
+      <button
+        onClick={generateZeroWaste}
+        disabled={!file || loading}
+        className={`mt-6 px-6 py-3 rounded-xl text-white font-semibold shadow bg-gray-400`}
+        
+        
+      >
+       Generate Zero-Waste Recipe
+    </button>
 
       {/* Results */}
       {result && (
