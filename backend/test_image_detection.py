@@ -32,15 +32,6 @@ class Items(BaseModel):
     items: List[Food]
 
 
-class Nutrient(BaseModel):
-    steps: List[str]
-    reasons: str
-    kcal: str
-    fat: str
-    proteins: str
-    carbohydrates: str
-
-
 # -------------------- Food Recognition --------------------
 
 def recognize_items(image_path) -> Items:
