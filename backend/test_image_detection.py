@@ -6,6 +6,9 @@ import gradio as gr
 from dotenv import load_dotenv
 import os
 
+# Add this line to actually load the .env file
+load_dotenv()
+
 def encode_image(image_path):
   with open(image_path, "rb") as image_file:
     return base64.b64encode(image_file.read()).decode('utf-8')
@@ -119,4 +122,4 @@ with gr.Blocks() as demo:
     )
 
 if __name__ == "__main__":
-    demo.launch() 
+    demo.launch()
