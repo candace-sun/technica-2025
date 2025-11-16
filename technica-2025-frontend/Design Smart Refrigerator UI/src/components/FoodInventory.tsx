@@ -27,6 +27,7 @@ import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { GoogleGenAI } from "@google/genai";
 
 import { ELEVENLABS_API_KEY, GEMINI_KEY } from "../../keys";
+import { object } from "@elevenlabs/elevenlabs-js/core/schemas";
 
 interface FoodItem {
   id: string;
@@ -49,11 +50,21 @@ export function FoodInventory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showVoiceDialog, setShowVoiceDialog] = useState(false);
+  const [loadingState, setLoadingState] = useState("none");
 
   useEffect(() => {
     const loggedIn = true;
     const myprompt =
-      "Given the following text explaining what foods a user wants to record in an app, return a structured object in the json format specified. Output format: a list of each food mentioned. Object format: {name: String, quantity: 'small', 'medium', 'large', date: string in the format YEAR-DATE-MONTH}. Quantity should reflect roughly how much of that food they specified (use small if not specified). Date should specify when they acquired the food (use today's date, November 15 2025, as reference and if not specified). Text:  ";
+      "Given the following text explaining what foods a user wants to record in an app, return a structured object in the json format specified. Output format: a list of each food mentioned. Object format: {name: String, quantity: 'small', 'medium', 'large', date: string in the format YEAR-DATE-MONTH}. Quantity should reflect roughly how much of that food they specified (use small if not specified). Date should specify when they acquired the food (use today's date, November 15 2025, as reference and if not specified). Do not include ```json``` wrapping the result, it should only be [] wrapping. Text:  ";
+
+    const createBulletedString = (items: any) => {
+      // Map over the array to format each item, then join them with newlines
+      return items
+        .map((item: { name: any; quantity: any; date: any }) => {
+          return `- ${item.name}\n   * Quantity: ${item.quantity}\n   * Date: ${item.date}`;
+        })
+        .join("\n");
+    };
 
     async function addToDB(input_json: string) {
       if (loggedIn) {
@@ -91,9 +102,26 @@ export function FoodInventory() {
       });
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: myprompt + voiceTest,
+        contents: myprompt + voiceTest, //"I bought 2 apples and a bottle of milk yesterday",
       });
       console.log(response.text);
+
+      if (response.text != "[]") {
+        try {
+          const obj = JSON.parse(response.text!);
+          console.log(obj);
+
+          const res = confirm(
+            `Add the following items to your inventory? \n\n${createBulletedString(
+              obj
+            )}`
+          );
+          setLoadingState("none");
+        } catch (e) {
+          console.log("Error parsing JSON:", e);
+          return;
+        }
+      }
     }
 
     const elevTest = async (blob: Blob) => {
@@ -167,10 +195,11 @@ export function FoodInventory() {
               "Last data to read (after MediaRecorder.stop() called)."
             );
 
-            const clipName = prompt(
-              "Enter a name for your sound clip?",
-              "My unnamed clip"
-            );
+            const clipName = null;
+            // = prompt(
+            //   "Enter a name for your sound clip?",
+            //   "My unnamed clip"
+            // );
 
             const clipContainer = document.createElement("article");
             const clipLabel = document.createElement("p");
@@ -208,9 +237,10 @@ export function FoodInventory() {
 
             clipLabel.onclick = () => {
               const existingName = clipLabel.textContent;
-              const newClipName = prompt(
-                "Enter a new name for your sound clip?"
-              );
+              const newClipName = null;
+              //prompt(
+              //   "Enter a new name for your sound clip?"
+              // );
               if (newClipName === null) {
                 clipLabel.textContent = existingName;
               } else {
@@ -218,6 +248,7 @@ export function FoodInventory() {
               }
             };
 
+            setLoadingState("block");
             elevTest(blob);
           };
 
@@ -503,6 +534,7 @@ export function FoodInventory() {
         </DialogContent>
       </Dialog>
 
+      <p>Voice Input 🗣️</p>
       <section className="main-controls">
         <div id="buttons">
           <button
@@ -526,10 +558,10 @@ export function FoodInventory() {
         </div>
       </section>
 
-      <section className="sound-clips">
-        {/* In a real React app, you would map over an array
-              of sound clips in state and render them here. */}
-      </section>
+      <section className="sound-clips" style={{ display: "none" }}></section>
+      <p id="loading-text" style={{ display: loadingState }}>
+        Processing...
+      </p>
 
       {/* Add Item Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
