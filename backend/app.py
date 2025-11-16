@@ -207,7 +207,7 @@ def add_food():
         user=user,
         name=name,
         quantity=quantity,
-        expiration_date=expiration_date
+        expiration_date=get_food_expiration(name).get("expiration_date") or fallback_expiration(name)
     )
     food.save()
 
