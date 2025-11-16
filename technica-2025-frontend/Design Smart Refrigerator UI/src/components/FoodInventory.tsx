@@ -55,6 +55,7 @@ export function FoodInventory() {
   const [loadingState, setLoadingState] = useState("none");
   const [voiceState, setVoiceState] = useState("none");
   const [showCameraDialog, setShowCameraDialog] = useState(false);
+  const [showManualDialog, setShowManualDialog] = useState(false);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [uploadedReceipt, setUploadedReceipt] = useState<{
     file: File | null;
@@ -68,6 +69,17 @@ export function FoodInventory() {
   } | null>(null);
 
   const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
+
+  // 2. Initialize state with default values
+  // We default the date to today's date (YYYY-MM-DD)
+  const [formData, setFormData] = useState<FoodFormData>({
+    name: "",
+    quantity: "medium", // Default to medium
+    date: new Date().toISOString().split("T")[0],
+  });
+
+  const [status, setStatus] = useState<string>("");
+
   const userId = "b63930be-fdf4-4f43-811f-2427e4157b3b";
 
   useEffect(() => {
@@ -432,6 +444,52 @@ export function FoodInventory() {
     recordTest();
   }, []);
 
+  // 1. Define the shape of the form data
+  interface FoodFormData {
+    name: string;
+    quantity: "small" | "medium" | "large";
+    date: string;
+  }
+
+  // 3. Handle input changes
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  // 4. Handle Form Submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); // Prevent the browser from reloading the page
+    setStatus("Submitting...");
+
+    try {
+      // Make sure this URL matches your Flask backend exactly!
+      const response = await fetch("http://127.0.0.1:8000/add-food", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        setStatus("Success! Food added.");
+        // Optional: Reset name after success, keep date/quantity
+        setFormData((prev) => ({ ...prev, name: "" }));
+      } else {
+        setStatus("Error: Failed to add food.");
+      }
+    } catch (error) {
+      console.error("Network error:", error);
+      setStatus("Error: Could not connect to server.");
+    }
+  };
+
   // const foodItems: FoodItem[] = [
   //   {
   //     id: "1",
@@ -522,6 +580,9 @@ export function FoodInventory() {
     } else if (optionId == "receipt") {
       setShowAddDialog(false);
       setShowReceiptDialog(true);
+    } else {
+      setShowAddDialog(false);
+      setShowManualDialog(true);
     }
   };
 
@@ -941,6 +1002,109 @@ export function FoodInventory() {
           <div className="pt-4">
             <Button
               onClick={() => setShowReceiptDialog(false)}
+              variant="outline"
+              className="w-full rounded-xl border-2 border-[var(--eco-green)]/30 hover:bg-[var(--eco-mint)]"
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* manual upload */}
+      <Dialog open={showManualDialog} onOpenChange={setShowManualDialog}>
+        <DialogContent
+          className="max-w-md"
+          style={{
+            borderRadius: "24px",
+            border: "4px solid var(--eco-green)",
+            background: "linear-gradient(135deg, #FFFEF7 0%, #E8F5E9 100%)",
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl text-[var(--eco-green)] flex items-center justify-center gap-2">
+              📝 Add Items Manually
+            </DialogTitle>
+            <DialogDescription className="text-center text-[var(--eco-dark)]/70 text-sm">
+              Type in your food to upload ♡
+            </DialogDescription>
+          </DialogHeader>
+
+          <div
+            style={{
+              maxWidth: "400px",
+              margin: "20px auto",
+            }}
+          >
+            <form
+              onSubmit={handleSubmit}
+              style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+            >
+              {/* Food Name Input */}
+              <div>
+                <label style={{ display: "block", marginBottom: "5px" }}>
+                  Food Name:
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                  placeholder="e.g. Bananas"
+                  style={{ padding: "8px", width: "100%" }}
+                />
+              </div>
+
+              {/* Quantity Select */}
+              <div>
+                <label style={{ display: "block", marginBottom: "5px" }}>
+                  Quantity:
+                </label>
+                <select
+                  name="quantity"
+                  value={formData.quantity}
+                  onChange={handleChange}
+                  style={{ padding: "8px", width: "100%" }}
+                >
+                  <option value="small">Small</option>
+                  <option value="medium">Medium</option>
+                  <option value="large">Large</option>
+                </select>
+              </div>
+
+              {/* Date Input */}
+              <div>
+                <label style={{ display: "block", marginBottom: "5px" }}>
+                  Date Acquired:
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleChange}
+                  required
+                  style={{ padding: "8px", width: "100%" }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-white hover:bg-[var(--eco-mint)] rounded-xl h-12 border-2 border-[var(--eco-green)]/30 shadow-md text-[var(--eco-dark)]"
+              >
+                Add to Log
+              </button>
+            </form>
+
+            {/* Status Message */}
+            {status && (
+              <p style={{ marginTop: "10px", fontWeight: "bold" }}>{status}</p>
+            )}
+          </div>
+
+          <div className="pt-4">
+            <Button
+              onClick={() => setShowManualDialog(false)}
               variant="outline"
               className="w-full rounded-xl border-2 border-[var(--eco-green)]/30 hover:bg-[var(--eco-mint)]"
             >
