@@ -7,15 +7,32 @@ from models import User, Food
 from datetime import datetime, timedelta
 import uuid 
 from expiration_helper import get_food_expiration, fallback_expiration
+from receipt_parser import parse_receipt
 
 # CRUD TO DB!!
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:3000"])
 
-# check what kind of food you have, needs a file as part of the header, alsos 
+# need image, user, then adds food based on image
 @app.route("/detect-food", methods=["POST"])
 def detect_food():
+    # --- USER ID REQUIRED ---
+    user_id = request.form.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+
+    # UUID lookup
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        return jsonify({"error": "Invalid user_id format"}), 400
+
+    user = User.objects(id=user_uuid).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # --- FILE HANDLING ---
     if "file" not in request.files:
         return jsonify({"result": "No file uploaded"}), 400
 
@@ -24,49 +41,106 @@ def detect_food():
     file_path = os.path.join("images", file.filename)
     file.save(file_path)
 
+    # --- RUN IMAGE DETECTION ---
     items = recognize_items(file_path)
-    # print(items)
     if not items.items:
         return jsonify({"result": "Food could not be detected."})
 
-    result_list = [
-        {"name": f.name, "quantity": f.quantity, "expiration": str(f.expiration)}
-        for f in items.items
-    ]
+    saved_items = []  # IMPORTANT
 
-    food_list = []
-    for item in result_list:
+    for f in items.items:
+        name = f.name or "Unknown"
+        quantity = (f.quantity or "medium").lower()
+        if quantity not in ("small", "medium", "large"):
+            quantity = "medium"
+
+        # --- EXPIRATION DATE ---
+        exp_info = get_food_expiration(name)
+        expiration_date = exp_info.get("expiration_date")
+
+        # fallback if nothing returned
+        if not expiration_date:
+            expiration_date = fallback_expiration(name)
+
+        # --- SAVE TO DATABASE ---
+        food = Food(
+            user=user,
+            name=name,
+            quantity=quantity,
+            expiration_date=expiration_date
+        )
+        food.save()
+
+        saved_items.append({
+            "name": name,
+            "quantity": quantity,
+            "expiration_date": expiration_date.isoformat(),
+            "food_id": str(food.id)
+        })
+
+    return jsonify({
+        "result": "success",
+        "items_saved": saved_items
+    })
+
+# parse receipt similar to function above
+@app.route("/parse-receipt", methods=["POST"])
+def parse_receipt_route():
+    # 1️⃣ user_id required
+    user_id = request.form.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+
+    try:
+        user_uuid = uuid.UUID(user_id)
+        user = User.objects(id=user_uuid).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+    except ValueError:
+        return jsonify({"error": "Invalid user_id format"}), 400
+
+    # 2️⃣ file required
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files["file"]
+    os.makedirs("receipts", exist_ok=True)
+    file_path = os.path.join("receipts", file.filename)
+    file.save(file_path)
+
+    # 3️⃣ parse receipt using utility
+    parsed_data = parse_receipt(file_path)
+    raw_items = parsed_data.get("items", [])
+
+    saved_items = []
+    for item in raw_items:
         name = item.get("name", "Unknown")
         quantity = item.get("quantity", "medium").lower()
         if quantity not in ("small", "medium", "large"):
             quantity = "medium"
 
-        # --- CALL THE EXPIRATION HELPER HERE ---
-        exp_info = get_food_expiration(name)  # <-- this is the call
-        expiration_date = exp_info.get("expiration_date")
-        if not expiration_date:
-            expiration_date = fallback_expiration(name)  # fallback if helper returns nothing
+        expiration_date = get_food_expiration(name).get("expiration_date") or fallback_expiration(name)
 
         food_obj = Food(
-            # user=user,
+            user=user,
             name=name,
             quantity=quantity,
             expiration_date=expiration_date
         )
-        food_list.append(food_obj)
+        food_obj.save()
+
+        saved_items.append({
+            "name": name,
+            "quantity": quantity,
+            "expiration_date": expiration_date.isoformat(),
+            "food_id": str(food_obj.id)
+        })
+
     return jsonify({
-    "result": [
-        {
-            "name": f.name,
-            "quantity": f.quantity,
-            "expiration_date": f.expiration_date.isoformat()
-        }
-        for f in food_list
-    ]
-})
-
-
-
+        "store": parsed_data.get("store"),
+        "date": parsed_data.get("date"),
+        "items_saved": saved_items
+    })
 # create a (zero waste) recipe 
 @app.route("/zero-waste-recipe", methods=["POST"])
 def zero_waste_recipe():
@@ -83,8 +157,8 @@ def zero_waste_recipe():
 
 
 # adding a user
-@app.route("/add-to-db", methods=['POST'])
-def add_to_db():
+@app.route("/add-user", methods=['POST'])
+def add_user():
     data = request.json
 
     username = data.get("username")

@@ -29,18 +29,6 @@ def is_food(item_name):
 
 
 def parse_receipt(image_path):
-    """
-    Parse a receipt image and return:
-    {
-        "store": "Store Name",
-        "date": "YYYY-MM-DD",
-        "items": [
-            {"name": "apple", "quantity": "2"},
-            {"name": "milk", "quantity": "16 oz"},
-            ...
-        ]
-    }
-    """
     img = Image.open(image_path)
     text = pytesseract.image_to_string(img)
     lines = text.split("\n")
