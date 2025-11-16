@@ -35,7 +35,6 @@ export default function App() {
     minute: "2-digit",
   }); //
 
-
   const tabs = [
     { id: "inventory" as Tab, label: "Inventory", icon: Package },
     { id: "shopping" as Tab, label: "Shop", icon: ShoppingCart },
@@ -136,9 +135,7 @@ export default function App() {
                         <div className="flex items-center gap-2">
                           <span className="text-xl">🌿</span>
                           <div>
-                            <h2 className="font-bold text-sm">
-                              EcoFridge Control
-                            </h2>
+                            <h2 className="font-bold text-sm">freshly yours</h2>
                             <p className="text-[9px] opacity-90">
                               ✿ Smart Dashboard ✿
                             </p>
@@ -146,7 +143,9 @@ export default function App() {
                         </div>
                         <div className="text-right text-xs bg-white/20 backdrop-blur px-3 py-1.5 rounded-full border border-white/30">
                           <div className="font-medium">{formattedDate} ♡</div>
-                          <div className="opacity-90 text-[9px]">{formattedTime}</div>
+                          <div className="opacity-90 text-[9px]">
+                            {formattedTime}
+                          </div>
                         </div>
                       </div>
                     </div>
