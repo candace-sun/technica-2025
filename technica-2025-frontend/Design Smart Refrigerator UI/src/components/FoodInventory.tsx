@@ -28,6 +28,7 @@ import { GoogleGenAI } from "@google/genai";
 
 import { ELEVENLABS_API_KEY, GEMINI_KEY } from "../../keys";
 import { object } from "@elevenlabs/elevenlabs-js/core/schemas";
+import CameraCapture from "./CameraCapture";
 
 interface FoodItem {
   id: string;
@@ -52,6 +53,90 @@ export function FoodInventory() {
   const [showVoiceDialog, setShowVoiceDialog] = useState(false);
   const [loadingState, setLoadingState] = useState("none");
   const [voiceState, setVoiceState] = useState("none");
+  const [showCameraDialog, setShowCameraDialog] = useState(false);
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [uploadedReceipt, setUploadedReceipt] = useState<{
+  file: File | null;
+  preview: string | null;
+} | null>(null);
+const [showReceiptDialog, setShowReceiptDialog] = useState(false);
+
+  const [uploadedFile, setUploadedFile] = useState<{
+  file: File | null;
+  preview: string | null;
+} | null>(null);
+
+
+const handleReceiptUpload = () => {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*,application/pdf"; // allow images or PDFs for receipts
+  input.onchange = async (e: any) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadedReceipt({ file, preview: URL.createObjectURL(file) });
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("user_id", "b63930be-fdf4-4f43-811f-2427e4157b3b");
+
+    try {
+      const res = await fetch("http://127.0.0.1:8000/parse-receipt", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      console.log("Parsed receipt data:", data);
+
+      setAlertMessage("Uploaded successfully!");
+      setTimeout(() => setAlertMessage(null), 3000);
+    } catch (err) {
+      console.error(err);
+      setAlertMessage("Upload failed");
+      setTimeout(() => setAlertMessage(null), 3000);
+    }
+  };
+
+  input.click();
+};
+
+const handleReceiptReupload = () => {
+  setUploadedReceipt(null);
+  handleReceiptUpload();
+};
+
+
+const handleFileSelect = () => {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.onchange = (e: any) => {
+    const file = e.target.files[0];
+    if (file) {
+      setUploadedFile({ file, preview: URL.createObjectURL(file) });
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("user_id", "b63930be-fdf4-4f43-811f-2427e4157b3b");
+      fetch("http://127.0.0.1:8000/detect-food", { method: "POST", body: formData })
+        .then((res) => res.json())
+        .then(console.log)
+        .catch(console.error);
+      
+      setAlertMessage("Uploaded successfully!");  
+    }
+  };
+  input.click();
+};
+
+const handleReupload = () => {
+  setUploadedFile(null);
+  handleFileSelect();
+};
+
+
 
   useEffect(() => {
     const loggedIn = true;
@@ -362,7 +447,13 @@ export function FoodInventory() {
       setVoiceState("block");
       setShowAddDialog(false);
     } else if (optionId === "camera") {
-      alert("Camera input coming soon!");
+      setShowAddDialog(false);
+      setShowCameraDialog(true);
+    }
+    else if (optionId == "receipt")
+    {
+      setShowAddDialog(false)
+      setShowReceiptDialog(true)
     }
   };
 
@@ -647,6 +738,149 @@ export function FoodInventory() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Camera Scan */}
+<Dialog open={showCameraDialog} onOpenChange={setShowCameraDialog}>
+  <DialogContent
+    className="max-w-md"
+    style={{
+      borderRadius: "24px",
+      border: "4px solid var(--eco-green)",
+      background: "linear-gradient(135deg, #FFFEF7 0%, #E8F5E9 100%)",
+    }}
+  >
+    <DialogHeader>
+      <DialogTitle className="text-center text-xl text-[var(--eco-green)] flex items-center justify-center gap-2">
+        📸 Add Items via Camera
+      </DialogTitle>
+      <DialogDescription className="text-center text-[var(--eco-dark)]/70 text-sm">
+        Take a photo of your groceries or upload an image ♡
+      </DialogDescription>
+    </DialogHeader>
+
+    <div className="space-y-4 mt-2">
+
+      {/* Live Camera Capture */}
+      <CameraCapture
+        onCapture={(dataUrl) => {
+          console.log("Captured photo (base64):", dataUrl);
+          setUploadedFile({ preview: dataUrl, file: null });
+        }}
+      />
+
+      {/* File Upload */}
+      {uploadedFile ? (
+        <>
+          {/* Show preview */}
+          {uploadedFile.preview && (
+            <img
+              src={uploadedFile.preview}
+              alt="Uploaded"
+              className="w-full h-64 object-cover rounded-xl border"
+            />
+          )}
+          <button
+            onClick={handleReupload}
+            className="w-full bg-[var(--eco-green)] text-white rounded-xl h-12 border-2 border-white shadow-md"
+          >
+            Re-upload
+          </button>
+        </>
+      ) : (
+        <button
+          onClick={handleFileSelect}
+          className="w-full bg-white hover:bg-[var(--eco-mint)] rounded-xl h-12 border-2 border-[var(--eco-green)]/30 shadow-md text-[var(--eco-dark)]"
+        >
+          Upload From Device
+        </button>
+      )}
+
+      {alertMessage && (
+        <div className="p-2 rounded-md bg-green-100 text-green-800 text-center">
+          {alertMessage}
+        </div>
+      )}
+    </div>
+
+    <div className="pt-4">
+      <Button
+        onClick={() => setShowCameraDialog(false)}
+        variant="outline"
+        className="w-full rounded-xl border-2 border-[var(--eco-green)]/30 hover:bg-[var(--eco-mint)]"
+      >
+        Cancel
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
+
+{/* receipt scan */}
+<Dialog open={showReceiptDialog} onOpenChange={setShowReceiptDialog}>
+  <DialogContent
+    className="max-w-md"
+    style={{
+      borderRadius: "24px",
+      border: "4px solid var(--eco-green)",
+      background: "linear-gradient(135deg, #FFFEF7 0%, #E8F5E9 100%)",
+    }}
+  >
+    <DialogHeader>
+      <DialogTitle className="text-center text-xl text-[var(--eco-green)] flex items-center justify-center gap-2">
+        🧾 Add Items via Receipt
+      </DialogTitle>
+      <DialogDescription className="text-center text-[var(--eco-dark)]/70 text-sm">
+        Upload your shopping receipt and we'll parse your items ♡
+      </DialogDescription>
+    </DialogHeader>
+
+    <div className="space-y-4 mt-2">
+      {uploadedReceipt ? (
+        <>
+          {uploadedReceipt.preview && (
+            <img
+              src={uploadedReceipt.preview}
+              alt="Uploaded Receipt"
+              className="w-full h-64 object-cover rounded-xl border"
+            />
+          )}
+          <button
+            onClick={handleReceiptReupload}
+            className="w-full bg-[var(--eco-green)] text-white rounded-xl h-12 border-2 border-white shadow-md"
+          >
+            Re-upload
+          </button>
+        </>
+      ) : (
+        <button
+          onClick={handleReceiptUpload}
+          className="w-full bg-white hover:bg-[var(--eco-mint)] rounded-xl h-12 border-2 border-[var(--eco-green)]/30 shadow-md text-[var(--eco-dark)]"
+        >
+          Upload Receipt
+        </button>
+      )}
+
+      {alertMessage && (
+        <div className="p-2 rounded-md bg-green-100 text-green-800 text-center">
+          {alertMessage}
+        </div>
+      )}
+    </div>
+
+    <div className="pt-4">
+      <Button
+        onClick={() => setShowReceiptDialog(false)}
+        variant="outline"
+        className="w-full rounded-xl border-2 border-[var(--eco-green)]/30 hover:bg-[var(--eco-mint)]"
+      >
+        Cancel
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
+
+
 
       {/* Search */}
       <div className="relative">
