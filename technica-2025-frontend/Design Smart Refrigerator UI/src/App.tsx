@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Thermometer,
   Package,
@@ -18,6 +18,23 @@ type Tab = "inventory" | "shopping";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("inventory");
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formattedDate = currentTime.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  }); // e.g., "Nov 15"
+
+  const formattedTime = currentTime.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }); //
+
 
   const tabs = [
     { id: "inventory" as Tab, label: "Inventory", icon: Package },
@@ -128,8 +145,8 @@ export default function App() {
                           </div>
                         </div>
                         <div className="text-right text-xs bg-white/20 backdrop-blur px-3 py-1.5 rounded-full border border-white/30">
-                          <div className="font-medium">Nov 15 ♡</div>
-                          <div className="opacity-90 text-[9px]">2:34 PM</div>
+                          <div className="font-medium">{formattedDate} ♡</div>
+                          <div className="opacity-90 text-[9px]">{formattedTime}</div>
                         </div>
                       </div>
                     </div>
